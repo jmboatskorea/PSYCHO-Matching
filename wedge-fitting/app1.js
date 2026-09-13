@@ -1,0 +1,17 @@
+const PICS=['https://images.unsplash.com/photo-1763003665862-2198a4cacb28?auto=format&fit=crop&w=1800&q=80','https://images.unsplash.com/photo-1762957325421-da41f9369343?auto=format&fit=crop&w=1800&q=80','https://images.unsplash.com/photo-1770219792075-0aafd9043d77?auto=format&fit=crop&w=1800&q=80'];
+const DB={"JP Premier":{lofts:[46,48,50,52,54,55,56,58,60]},"JP Camber":{lofts:[48,50,52,54,55,56,58,60]}};
+const scoreRanges=['+100','100-95','95-90','90-85','85-80','80-75','75-72','71 ~'];
+const rows=['PW','GW','SW','LW'],cols=['Full Swing','Around Green','Open Face','Greenside Bunker'];
+let lang=localStorage.getItem('jpwl')||'en',step=0;
+const S={product:null,count:null,score:null,pw:null,pwCarry:null,pwUnknown:false,hi:null,hiCarry:null,hiUnknown:false,divot:null,shots:{},fairway:null,bunker:null,conf:null};
+function t(){return I[lang]}function setLang(x){lang=x;localStorage.setItem('jpwl',x);render()}function sel(a,b){return String(a)===String(b)?'sel':''}function num(v){v=parseFloat(v);return Number.isFinite(v)?v:null}function epw(){return S.pw==='unknown'?44:parseInt(S.pw)}function ref(l){return 140-(l-46)*(40/12)}function mode(){return !S.pwUnknown&&!S.hiUnknown?'two':S.pwUnknown&&S.hiUnknown?'zero':'one'}
+function resolve(){let p=epw(),h=parseInt(S.hi),rp=ref(p),rh=ref(h),pd=S.pwUnknown?null:num(S.pwCarry),hd=S.hiUnknown?null:num(S.hiCarry);if(pd==null&&hd!=null){let s=hd/rh;pd=rp*s}else if(pd!=null&&hd==null){let s=pd/rp;hd=rh*s}else if(pd==null&&hd==null){pd=rp;hd=rh}return{p,h,rp,rh,pd,hd}}
+function pred(l){let r=resolve(),rl=ref(l);if(mode()==='two'){if(Math.abs(r.rp-r.rh)<.001)return r.pd;let q=(r.rp-rl)/(r.rp-r.rh);return r.pd+q*(r.hd-r.pd)}return rl*(r.pd/r.rp)}
+function shot(role,col){return !!S.shots[role+'|'+col]}
+function roleFor(l,set){let i=set.indexOf(l);return i===set.length-1?'LW':i===set.length-2?'SW':'GW'}
+function fscore(x){return {'Firm':-2,'Slightly Firm':-1,'Normal':0,'Slightly Soft':1,'Soft':2}[x]??0}function dscore(){return S.divot==='steep'?2:S.divot==='shallow'?-2:0}function cscore(){return S.conf==='vlow'?2:S.conf==='low'?1:S.conf==='high'?-1:S.conf==='vhigh'?-2:0}
+function bounce(role,loft){let s=dscore()+fscore(S.fairway);if(role==='SW'||role==='LW')s+=fscore(S.bunker)*.7+cscore()*.6;if(role==='LW'&&(shot('LW','Open Face')||shot('LW','Around Green')))s-=1.6;let raw=loft<58?(s>=1.2?'HIGH':'MID'):(s<=-1.2?'LOW':s>=1.4?'HIGH':'MID');if(S.product==='JP Premier'&&raw==='LOW')raw='MID';if(S.product==='JP Camber'&&raw==='LOW'&&(![58,60].includes(loft)||!shot(role,'Open Face')))raw='MID';return raw}
+function validHiLofts(){if(!S.product||!S.count||!S.pw)return DB[S.product]?.lofts||[];let pw=epw(),lofts=DB[S.product].lofts.filter(l=>l>pw);return lofts.filter(hi=>lofts.filter(l=>l<=hi).length>=S.count)}
+function combos(a,k){if(k===0)return [[]];let o=[];for(let i=0;i<=a.length-k;i++)for(const r of combos(a.slice(i+1),k-1))o.push([a[i],...r]);return o}
+function build(){let pw=epw(),hi=parseInt(S.hi),n=parseInt(S.count),avail=DB[S.product].lofts.filter(l=>l>pw&&l<=hi);if(!avail.includes(hi)||avail.length<n)return[];let pre=avail.filter(l=>l<hi),sets=combos(pre,n-1).map(c=>[...c,hi]),r=resolve(),target=(r.pd-r.hd)/n,best=null,bs=1e9;for(const set of sets){let prev=r.pd,sc=0,last=pw;for(const l of set){let d=pred(l),g=prev-d,lg=l-last;sc+=(g-target)**2;if(lg<2)sc+=40;if(lg>6)sc+=20;prev=d;last=l}if(sc<bs){bs=sc;best=set}}return best||[]}
+function firmnessLabel(v){let z=t();return {Firm:z.firm,'Slightly Firm':z.sfirm,Normal:z.normal,'Slightly Soft':z.ssoft,Soft:z.soft}[v]||v}
